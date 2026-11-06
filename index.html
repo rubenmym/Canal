@@ -138,7 +138,7 @@ details summary::-webkit-details-marker{display:none}
 .dots{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
 .dots i{width:14px;height:14px;border-radius:4px;background:var(--s2);border:1px solid var(--line)}
 .dots i.on{background:var(--gold);border-color:var(--gold)}
-.dots i.comp{background:transparent;border:2px solid var(--gold)}
+.dots i.comp{background:var(--gold);border-color:var(--gold)}
 .dots i.today{outline:2px solid var(--blue);outline-offset:1px}
 svg.chart text{fill:var(--mut);font-size:11px}
 .setup{max-width:520px;margin:40px auto;text-align:center}
@@ -310,7 +310,7 @@ function vHoy(){
     <div class="card">
       <h2>Racha</h2>
       <div class="streak"><div class="flame">${st?'🔥':'🌑'}</div><div><div class="kpi"><div class="v num">${st} ${st===1?'día':'días'}</div><div class="l">seguidos subiendo vídeo</div></div></div></div>
-      <div class="dots">${dots}</div>${compensados().length?`<div class="mut" style="font-size:12px;margin-top:8px">Contorno dorado: día compensado subiendo dos vídeos al día siguiente</div>`:''}
+      <div class="dots">${dots}</div>${compensados().length?`<div class="mut" style="font-size:12px;margin-top:8px">Incluye días compensados subiendo dos vídeos al día siguiente</div>`:''}
     </div>
     <div class="card">
       <h2>Reto hasta el 31 dic</h2>
