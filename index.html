@@ -223,6 +223,8 @@ async function enviar(cuerpo){
 }
 function normalizar(j){
   const o={canal:j.canal||{},videos:j.videos||[],analisis:j.analisis||[],ideas:j.ideas||[],historial:j.historial||[]};
+  const fx=f=>{if(f==null||f==='')return'';const t=String(f);if(/^\d{4}-\d{2}-\d{2}$/.test(t))return t;const d=new Date(t);return isNaN(d)?t.slice(0,10):hoyStr(d)};
+  ['videos','analisis','historial'].forEach(k=>o[k].forEach(x=>{x.fecha=fx(x.fecha)}));
   o.videos.forEach(v=>{v.final=v.final===true||v.final==='TRUE'||v.final==='true'});
   o.historial.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
   return o;
