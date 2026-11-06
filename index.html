@@ -138,6 +138,7 @@ details summary::-webkit-details-marker{display:none}
 .dots{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
 .dots i{width:14px;height:14px;border-radius:4px;background:var(--s2);border:1px solid var(--line)}
 .dots i.on{background:var(--gold);border-color:var(--gold)}
+.dots i.comp{background:transparent;border:2px solid var(--gold)}
 .dots i.today{outline:2px solid var(--blue);outline-offset:1px}
 svg.chart text{fill:var(--mut);font-size:11px}
 .setup{max-width:520px;margin:40px auto;text-align:center}
@@ -241,8 +242,9 @@ function borrarFila(hoja,id){
 
 /* ---------- cálculos ---------- */
 function videos(){return [...D.videos].sort((a,b)=>(+b.num||0)-(+a.num||0))}
+function compensados(){const c=D.canal.diasCompensados;if(Array.isArray(c))return c.map(String);return String(c||'').split(',').map(x=>x.trim()).filter(Boolean)}
 function racha(){
-  const set=new Set(D.videos.map(v=>String(v.fecha).slice(0,10)));
+  const set=new Set([...D.videos.map(v=>String(v.fecha).slice(0,10)),...compensados()]);
   let d=hoyStr();if(!set.has(d))d=addD(d,-1);
   let c=0;while(set.has(d)){c++;d=addD(d,-1)}
   return c;
@@ -294,7 +296,7 @@ function vHoy(){
   const sem=[...D.analisis].filter(a=>a.tipo==='semana').sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))[0];
   const delta=(k,dec)=>{if(u[k]==null||p[k]==null||u[k]===''||p[k]==='')return'';const d=u[k]-p[k];return`<div class="d ${d>=0?'up':'down'}">${d>=0?'+':''}${dec?d.toLocaleString('es-ES',{maximumFractionDigits:1}):nf.format(d)} desde el ${fCorta(p.fecha)}</div>`};
   const esperado=r.transcurridos, dif=r.hechos-esperado;
-  let dots='';for(let i=6;i>=0;i--){const d=addD(h,-i);const on=D.videos.some(v=>String(v.fecha)===d);dots+=`<i class="${on?'on':''} ${i===0?'today':''}" title="${fCorta(d)}"></i>`}
+  let dots='';for(let i=6;i>=0;i--){const d=addD(h,-i);const on=D.videos.some(v=>String(v.fecha)===d);const cp=!on&&compensados().includes(d);dots+=`<i class="${on?'on':cp?'comp':''} ${i===0?'today':''}" title="${fCorta(d)}${cp?' · compensado':''}"></i>`}
   return `
   <h1>${fLarga(h)}</h1>
   <p class="sub">${vh.length?'Vídeo de hoy subido. Buen trabajo.':'Hoy te toca subir vídeo.'}</p>
@@ -307,7 +309,7 @@ function vHoy(){
     <div class="card">
       <h2>Racha</h2>
       <div class="streak"><div class="flame">${st?'🔥':'🌑'}</div><div><div class="kpi"><div class="v num">${st} ${st===1?'día':'días'}</div><div class="l">seguidos subiendo vídeo</div></div></div></div>
-      <div class="dots">${dots}</div>
+      <div class="dots">${dots}</div>${compensados().length?`<div class="mut" style="font-size:12px;margin-top:8px">Contorno dorado: día compensado subiendo dos vídeos al día siguiente</div>`:''}
     </div>
     <div class="card">
       <h2>Reto hasta el 31 dic</h2>
