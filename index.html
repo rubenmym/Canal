@@ -227,7 +227,8 @@ function normalizar(j){
   const fx=f=>{if(f==null||f==='')return'';const t=String(f);if(/^\d{4}-\d{2}-\d{2}$/.test(t))return t;const d=new Date(t);return isNaN(d)?t.slice(0,10):hoyStr(d)};
   ['videos','analisis','historial'].forEach(k=>o[k].forEach(x=>{x.fecha=fx(x.fecha)}));
   Object.keys(o.canal).forEach(k=>{const v=o.canal[k];if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(v))o.canal[k]=fx(v)});
-  o.videos.forEach(v=>{v.final=v.final===true||v.final==='TRUE'||v.final==='true'});
+  const bo=x=>x===true||x==='TRUE'||x==='true';
+  o.videos.forEach(v=>{v.final=bo(v.final);v.tt=bo(v.tt);v.ig=bo(v.ig)});
   o.historial.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
   return o;
 }
@@ -273,6 +274,12 @@ function ritmoSubs(){
   return (u.subs-base.subs)/d;
 }
 
+/* ---------- plataformas ---------- */
+const PL={yt:{n:'YouTube',c:'#FF5A52'},tt:{n:'TikTok',c:'#3FE0E8'},ig:{n:'Instagram',c:'#E7559A'}};
+function vis(v,p){if(p==='yt')return num(v.vistas);if(p==='total'){const a=['yt','tt','ig'].map(q=>vis(v,q)).filter(x=>x!=null);return a.length?a.reduce((x,y)=>x+y,0):null}return num(v['vistas'+p.toUpperCase()])}
+function pdot(p){return `<i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${PL[p].c}"></i>`}
+function togPlat(id,p){const v=D.videos.find(x=>x.id===id);if(!v)return;guardarFila('videos',{id,[p]:!v[p]});toast(PL[p].n+(v[p]?': quitado':': subido ✓'))}
+
 /* ---------- vistas ---------- */
 function render(){
   const subs=D.canal.subs;$('#hsubs').textContent=n(subs);
@@ -296,7 +303,7 @@ function vHoy(){
   const pa=pendientesAnalisis(), {u,p}=ultimoHist(), chk=checkHoy();
   const sem=[...D.analisis].filter(a=>a.tipo==='semana').sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))[0];
   const delta=(k,dec)=>{if(u[k]==null||p[k]==null||u[k]===''||p[k]==='')return'';const d=u[k]-p[k];return`<div class="d ${d>=0?'up':'down'}">${d>=0?'+':''}${dec?d.toLocaleString('es-ES',{maximumFractionDigits:1}):nf.format(d)} desde el ${fCorta(p.fecha)}</div>`};
-  const esperado=r.transcurridos, dif=r.hechos-esperado;
+  const pdia=+D.canal.videosPorDia||1, esperado=Math.max(0,r.transcurridos-(vh.length?0:pdia)), dif=r.hechos-esperado;
   let dots='';for(let i=6;i>=0;i--){const d=addD(h,-i);const on=D.videos.some(v=>String(v.fecha)===d);const cp=!on&&compensados().includes(d);dots+=`<i class="${on?'on':cp?'comp':''} ${i===0?'today':''}" title="${fCorta(d)}${cp?' · compensado':''}"></i>`}
   return `
   <h1>${fLarga(h)}</h1>
@@ -304,7 +311,7 @@ function vHoy(){
   <div class="grid g3">
     <div class="card ${vh.length?'':'hl'}">
       <h2>Vídeo de hoy</h2>
-      ${vh.length?vh.map(v=>`<div class="row"><span class="chip ok">✓ Subido</span><span class="mut">#${v.num}</span></div><div class="vt" style="margin-top:8px">${esc(v.titulo)}</div>`).join('<div style="height:10px"></div>')
+      ${vh.length?vh.map(v=>`<div class="row"><span class="mut">#${v.num}</span></div><div class="vt" style="margin-top:4px">${esc(v.titulo)}</div><div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap"><span class="chip ok">${pdot('yt')} YouTube ✓</span>${['tt','ig'].map(p=>`<button class="chip ${v[p]?'ok':''}" style="cursor:pointer" onclick="togPlat('${v.id}','${p}')">${pdot(p)} ${PL[p].n} ${v[p]?'✓':'· pendiente'}</button>`).join('')}</div>`).join('<div style="height:14px"></div>')
       :`<div class="vt" style="font-size:18px">Aún no has subido nada hoy</div><p class="mut" style="margin:6px 0 14px;font-size:13px">Cada vídeo nuevo reactiva todo el canal.</p><button class="btn" onclick="nuevoVideo()">Apuntar vídeo</button>`}
     </div>
     <div class="card">
@@ -322,7 +329,7 @@ function vHoy(){
   </div>
 
   <div class="grid g3" style="margin-top:14px">
-    <div class="card kpi"><div class="l">Suscriptores</div><div class="v num gold">${n(D.canal.subs)}</div>${delta('subs')}</div>
+    <div class="card kpi"><div class="l">Suscriptores · YouTube</div><div class="v num gold">${n(D.canal.subs)}</div>${delta('subs')}${(D.canal.segTT!==''&&D.canal.segTT!=null)||(D.canal.segIG!==''&&D.canal.segIG!=null)?`<div class="d mut" style="display:flex;gap:12px;margin-top:6px">${D.canal.segTT!==''&&D.canal.segTT!=null?`<span>${pdot('tt')} TikTok ${n(D.canal.segTT)}</span>`:''}${D.canal.segIG!==''&&D.canal.segIG!=null?`<span>${pdot('ig')} Instagram ${n(D.canal.segIG)}</span>`:''}</div>`:''}</div>
     <div class="card kpi"><div class="l">Visualizaciones · 28 días</div><div class="v num">${nk(D.canal.vistas28)}</div>${delta('vistas28')}</div>
     <div class="card kpi"><div class="l">Horas vistas · 28 días</div><div class="v num">${n(D.canal.horas28)}</div>${delta('horas28',1)}</div>
   </div>
@@ -356,20 +363,22 @@ function togAccion(id,i){
 /* vídeos */
 function vVideos(){
   let vs=videos();
-  const k={vistas:v=>num(v.vistas)??-1,subs:v=>num(v.subs)??-1,vvd:v=>num(v.vvd)??-1}[ui.vsort];
+  const P=ui.vplat||'total';
+  const k={vistas:v=>vis(v,P)??-1,subs:v=>num(v.subs)??-1,vvd:v=>num(v.vvd)??-1}[ui.vsort];
   if(k)vs.sort((a,b)=>k(b)-k(a));
-  const maxV=Math.max(1,...D.videos.map(v=>num(v.vistas)||0));
-  const tot=D.videos.reduce((s,v)=>s+(num(v.vistas)||0),0);
+  const maxV=Math.max(1,...D.videos.map(v=>vis(v,P)||0));
+  const tot=D.videos.reduce((s,v)=>s+(vis(v,P)||0),0);
+  const totP=q=>D.videos.reduce((s,v)=>s+(vis(v,q)||0),0);
   const conVvd=D.videos.filter(v=>num(v.vvd)!=null), medVvd=conVvd.length?conVvd.reduce((s,v)=>s+ +v.vvd,0)/conVvd.length:null;
   const conS=D.videos.filter(v=>num(v.subs)!=null&&num(v.vistas)), ratio=conS.length?conS.reduce((s,v)=>s+ +v.vistas,0)/Math.max(1,conS.reduce((s,v)=>s+ +v.subs,0)):null;
   return `
-  <div class="row" style="flex-wrap:wrap;gap:12px"><div><h1>Vídeos</h1><p class="sub" style="margin:0">${D.videos.length} publicados · ${nk(tot)} vistas en total</p></div><span class="sp"></span><button class="btn" onclick="nuevoVideo()">+ Nuevo vídeo</button></div>
+  <div class="row" style="flex-wrap:wrap;gap:12px"><div><h1>Vídeos</h1><p class="sub" style="margin:0">${D.videos.length} publicados · ${nk(totP('total'))} vistas sumando plataformas</p></div><span class="sp"></span><button class="btn" onclick="nuevoVideo()">+ Nuevo vídeo</button></div>
   <div class="grid g3" style="margin:18px 0">
     <div class="card kpi"><div class="l">Se quedan a verlo (media)</div><div class="v num">${pct(medVvd)}</div><div class="d mut">Objetivo: 60 %</div></div>
     <div class="card kpi"><div class="l">Vistas por suscriptor</div><div class="v num">${ratio?nf.format(Math.round(ratio)):'—'}</div><div class="d mut">Cuanto más bajo, mejor</div></div>
-    <div class="card kpi"><div class="l">Mejor vídeo</div><div class="v num" style="font-size:20px">${(()=>{const b=[...D.videos].sort((a,b)=>(num(b.vistas)||0)-(num(a.vistas)||0))[0];return b?'#'+b.num+' · '+nk(b.vistas):'—'})()}</div><div class="d mut">${esc(([...D.videos].sort((a,b)=>(num(b.vistas)||0)-(num(a.vistas)||0))[0]||{}).titulo||'')}</div></div>
+    <div class="card kpi"><div class="l">Vistas por plataforma</div>${['yt','tt','ig'].map(q=>`<div class="row" style="font-size:14px;margin-top:6px">${pdot(q)}<span>${PL[q].n}</span><span class="sp"></span><b class="num">${nk(totP(q))}</b></div>`).join('')}</div>
   </div>
-  <div class="seg" style="margin-bottom:12px">${[['reciente','Recientes'],['vistas','Más vistos'],['subs','Más suscriptores'],['vvd','Mejor gancho']].map(([k,l])=>`<button class="${ui.vsort===k?'on':''}" onclick="ui.vsort='${k}';render()">${l}</button>`).join('')}</div>
+  <div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="seg">${[['total','Todas'],['yt','YouTube'],['tt','TikTok'],['ig','Instagram']].map(([k,l])=>`<button class="${P===k?'on':''}" onclick="ui.vplat='${k}';render()">${k!=='total'?pdot(k)+' ':''}${l}</button>`).join('')}</div><div class="seg">${[['reciente','Recientes'],['vistas','Más vistos'],['subs','Más suscriptores'],['vvd','Mejor gancho']].map(([k,l])=>`<button class="${ui.vsort===k?'on':''}" onclick="ui.vsort='${k}';render()">${l}</button>`).join('')}</div></div>
   <div class="card" style="padding:4px 18px">
   ${vs.length?vs.map(v=>{const pend=!v.final&&v.fecha;const dd=v.fecha?dias(v.fecha,hoyStr()):0;return`
     <div class="li vrow" onclick="verVideo('${v.id}')">
@@ -380,11 +389,12 @@ function vVideos(){
           ${num(v.vvd)!=null?`<span class="chip ${v.vvd>=55?'ok':v.vvd<40?'bad':''}">Gancho ${pct(v.vvd)}</span>`:''}
           ${num(v.ret)!=null?`<span class="chip">Retención ${pct(v.ret)}</span>`:''}
           ${num(v.subs)!=null?`<span class="chip g">+${v.subs} subs</span>`:''}
+          ${['tt','ig'].filter(q=>v[q]||vis(v,q)!=null).map(q=>`<span class="chip">${pdot(q)} ${vis(v,q)!=null?nk(vis(v,q)):'subido'}</span>`).join('')}
           ${v.final?`<span class="chip b">Análisis final ✓</span>`:pend&&dd<7?`<span class="chip">Día ${dd}</span>`:pend?`<span class="chip bad">Falta análisis</span>`:''}
         </div>
-        <div class="bar vbar"><i style="width:${(num(v.vistas)||0)/maxV*100}%"></i></div>
+        <div class="bar vbar"><i style="width:${(vis(v,P)||0)/maxV*100}%"></i></div>
       </div>
-      <div class="big num">${nk(v.vistas)}<small>vistas</small></div>
+      <div class="big num">${nk(vis(v,P))}<small>${P==='total'?'vistas':PL[P].n}</small></div>
     </div>`}).join(''):`<div class="empty">Todavía no hay vídeos.</div>`}
   </div>`;
 }
@@ -398,6 +408,7 @@ function verVideo(id){
     <div class="fg">${campo('ff','Fecha de publicación',String(v.fecha||'').slice(0,10),'date')}${campo('fd','Duración (s)',v.duracion,'number','inputmode="numeric"')}</div>
     <div class="fg c4">${campo('fv','Vistas',v.vistas,'number','inputmode="numeric"')}${campo('fl','Me gusta',v.likes,'number','inputmode="numeric"')}${campo('fc','Comentarios',v.coms,'number','inputmode="numeric"')}${campo('fs','Suscriptores',v.subs,'number','inputmode="numeric"')}</div>
     <div class="fg">${campo('fq','% se quedaron a verlo',v.vvd,'number','inputmode="decimal" step="0.1"')}${campo('fr','Retención media %',v.ret,'number','inputmode="decimal" step="0.1"')}</div>
+    ${['tt','ig'].map(q=>{const U=q.toUpperCase();return `<div style="border-top:1px solid var(--line);margin:6px 0 10px;padding-top:12px"><div class="chk ${v[q]?'on':''}" id="f${q}" onclick="this.classList.toggle('on')" style="border:0;padding:0 0 10px"><div class="box"></div><div class="t" style="text-decoration:none;color:var(--tx)">${pdot(q)} Subido a ${PL[q].n}</div></div><div class="fg c4">${campo('fv'+q,'Vistas',v['vistas'+U],'number','inputmode="numeric"')}${campo('fl'+q,'Me gusta',v['likes'+U],'number','inputmode="numeric"')}${campo('fc'+q,'Comentarios',v['coms'+U],'number','inputmode="numeric"')}${campo('fs'+q,'Seguidores',v['seg'+U],'number','inputmode="numeric"')}</div></div>`}).join('')}
     <div class="f"><label for="fn">Notas</label><textarea id="fn">${esc(v.nota)}</textarea></div>
     <div class="chk ${v.final?'on':''}" id="ffin" onclick="this.classList.toggle('on')"><div class="box"></div><div class="t" style="text-decoration:none;color:var(--tx)">Análisis final hecho (7 días)</div></div>
     </div>
@@ -408,6 +419,7 @@ function borrarVideo(id){cerrar();borrarFila('videos',id);toast('Vídeo borrado'
 function guardarVideo(id){
   const g=s=>$(s).value, nn=s=>{const x=$(s).value;return x===''?'':+x};
   const fila={id,titulo:g('#ft'),fecha:g('#ff'),duracion:nn('#fd'),vistas:nn('#fv'),likes:nn('#fl'),coms:nn('#fc'),subs:nn('#fs'),vvd:nn('#fq'),ret:nn('#fr'),nota:g('#fn'),final:$('#ffin').classList.contains('on')};
+  ['tt','ig'].forEach(q=>{const U=q.toUpperCase();fila[q]=$('#f'+q).classList.contains('on');fila['vistas'+U]=nn('#fv'+q);fila['likes'+U]=nn('#fl'+q);fila['coms'+U]=nn('#fc'+q);fila['seg'+U]=nn('#fs'+q);if(fila['vistas'+U]!=='')fila[q]=true});
   if(!fila.titulo.trim()){toast('Ponle un título');return}
   cerrar();guardarFila('videos',fila);toast('Vídeo guardado');
 }
@@ -419,13 +431,14 @@ function nuevoVideo(pre={}){
     ${campo('nt','Título',pre.titulo||'','text','placeholder="Rechazó / vendió X por Y 🤯"')}
     <div class="fg">${campo('nf','Fecha',hoyStr(),'date')}${campo('nd','Duración (s)','','number','inputmode="numeric" placeholder="30"')}</div>
     <div class="f"><label for="nn">Notas</label><textarea id="nn" placeholder="Gancho, música, qué has probado…">${esc(pre.notas||'')}</textarea></div>
+    <div class="row" style="gap:16px;flex-wrap:wrap">${['tt','ig'].map(q=>`<div class="chk" id="n${q}" onclick="this.classList.toggle('on')" style="border:0"><div class="box"></div><div class="t" style="text-decoration:none;color:var(--tx)">${pdot(q)} También en ${PL[q].n}</div></div>`).join('')}</div>
     </div>
     <div class="row" style="margin-top:8px"><span class="sp"></span><button class="btn" onclick="crearVideo(${sig},'${pre.idea||''}')">Guardar vídeo</button></div>`);
   setTimeout(()=>$('#nt')&&$('#nt').focus(),50);
 }
 function crearVideo(sig,idea){
   const t=$('#nt').value.trim();if(!t){toast('Ponle un título');return}
-  const fila={id:'v-'+Date.now().toString(36),num:sig,titulo:t,fecha:$('#nf').value,duracion:$('#nd').value===''?'':+$('#nd').value,vistas:'',likes:'',coms:'',subs:'',vvd:'',ret:'',final:false,nota:$('#nn').value};
+  const fila={id:'v-'+Date.now().toString(36),num:sig,titulo:t,fecha:$('#nf').value,duracion:$('#nd').value===''?'':+$('#nd').value,vistas:'',likes:'',coms:'',subs:'',vvd:'',ret:'',final:false,nota:$('#nn').value,tt:$('#ntt').classList.contains('on'),ig:$('#nig').classList.contains('on')};
   cerrar();guardarFila('videos',fila);
   if(idea)guardarFila('ideas',{id:idea,estado:'hecho'});
   toast('Vídeo #'+sig+' apuntado');
@@ -572,11 +585,14 @@ function ajustes(){
     <div class="row"><h1 style="font-size:20px;margin:0">Ajustes</h1><span class="sp"></span><button class="btn ghost" onclick="cerrar()">Cerrar</button></div>
     <div style="margin-top:16px">
       <div class="f"><label for="ac">Código de conexión</label><input id="ac" value="${esc(API?API+'?clave='+CLAVE:'')}" placeholder="https://script.google.com/…/exec?clave=…" autocapitalize="off" autocorrect="off"></div>
+      <div class="fg">${campo('aTT','Seguidores en TikTok',D&&D.canal.segTT,'number','inputmode="numeric"')}${campo('aIG','Seguidores en Instagram',D&&D.canal.segIG,'number','inputmode="numeric"')}</div>
+      <button class="btn sec" style="width:100%;margin-bottom:16px" onclick="guardarSeg()">Guardar seguidores</button>
       <div class="row" style="gap:8px"><button class="btn" onclick="conectar($('#ac').value)">Guardar y conectar</button><button class="btn sec" onclick="cerrar();cargar()">Sincronizar ahora</button></div>
       <p class="mut" style="font-size:12px;margin-top:16px">Los datos viven en tu hoja de Google “Millones y Mitos · Datos de la app”. Clau los actualiza cuando le mandas capturas.</p>
     </div>`);
 }
 $('#btnAjustes').onclick=ajustes;
+function guardarSeg(){if(!D)return;const d={segTT:$('#aTT').value===''?'':+$('#aTT').value,segIG:$('#aIG').value===''?'':+$('#aIG').value};Object.assign(D.canal,d);guardarLocal();cerrar();render();enviar({accion:'canal',datos:d});toast('Seguidores guardados')}
 function conectar(txt){
   try{
     const u=new URL(String(txt).trim());const k=u.searchParams.get('clave');
