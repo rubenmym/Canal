@@ -299,22 +299,35 @@ const CHECK=[
   ['Comentario fijado con la pregunta','Hazlo justo después de publicar'],
 ];
 function checkHoy(){try{return JSON.parse(lsGet('mym-check-'+hoyStr())||'[]')}catch(e){return[]}}
+function tareasHoy(){
+  const h=hoyStr(), T=[];
+  const vh=D.videos.filter(v=>String(v.fecha)===h);
+  T.push({t:'Subir el vídeo de hoy',d:vh.length?esc(vh[0].titulo):'Publícalo entre las 18:00 y las 19:00',ok:vh.length>0,act:vh.length?'':'nuevoVideo()'});
+  T.push({t:'Mandar a Clau la foto del Panel',d:'YouTube Studio → Panel',ok:D.historial.some(x=>String(x.fecha)===h)});
+  D.videos.filter(v=>v.fecha&&!v.final&&addD(v.fecha,7)<=h).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha))).forEach(v=>{
+    const late=addD(v.fecha,7)<h;
+    T.push({t:'Análisis final: '+esc(v.titulo),d:late?'Atrasado: cumplió 7 días el '+fCorta(addD(v.fecha,7)):'Cumple 7 días hoy · capturas de las 4 pestañas',ok:false,late});
+  });
+  D.videos.filter(v=>v.fecha&&v.final&&addD(v.fecha,7)===h).forEach(v=>T.push({t:'Análisis final: '+esc(v.titulo),d:'Hecho',ok:true}));
+  if(pd(h).getDay()===5)T.push({t:'Análisis semanal del canal',d:'Estadísticas → Vista general, Contenido y Audiencia',ok:D.analisis.some(a=>a.tipo==='semana'&&String(a.fecha)===h)});
+  return T;
+}
 function vHoy(){
-  const h=hoyStr(), r=reto(), st=racha(), vh=D.videos.filter(v=>String(v.fecha)===h);
-  const pa=pendientesAnalisis(), {u,p}=ultimoHist(), chk=checkHoy();
-  const sem=[...D.analisis].filter(a=>a.tipo==='semana').sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))[0];
+  const h=hoyStr(), r=reto(), st=racha();
+  const pa=pendientesAnalisis().filter(x=>x.falta>0), {u,p}=ultimoHist(), T=tareasHoy(), hechas=T.filter(x=>x.ok).length;
   const delta=(k,dec)=>{if(u[k]==null||p[k]==null||u[k]===''||p[k]==='')return'';const d=u[k]-p[k];return`<div class="d ${d>=0?'up':'down'}">${d>=0?'+':''}${dec?d.toLocaleString('es-ES',{maximumFractionDigits:1}):nf.format(d)} desde el ${fCorta(p.fecha)}</div>`};
-  const esperado=r.transcurridos, dif=r.hechos-esperado;
+  const dif=r.hechos-r.transcurridos;
   let dots='';for(let i=6;i>=0;i--){const d=addD(h,-i);const on=D.videos.some(v=>String(v.fecha)===d);const cp=!on&&compensados().includes(d);dots+=`<i class="${on?'on':cp?'comp':''} ${i===0?'today':''}" title="${fCorta(d)}${cp?' · compensado':''}"></i>`}
   return `
   <h1>${fLarga(h)}</h1>
-  <p class="sub">${vh.length?'Vídeo de hoy subido. Buen trabajo.':'Hoy te toca subir vídeo.'}</p>
-  <div class="grid g3">
-    <div class="card ${vh.length?'':'hl'}">
-      <h2>Vídeo de hoy</h2>
-      ${vh.length?vh.map(v=>`<div class="row"><span class="mut">#${v.num}</span></div><div class="vt" style="margin-top:4px">${esc(v.titulo)}</div><div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">${OTRAS.length?`<span class="chip ok">${pdot('yt')} YouTube ✓</span>`:''}${OTRAS.map(p=>`<button class="chip ${v[p]?'ok':''}" style="cursor:pointer" onclick="togPlat('${v.id}','${p}')">${pdot(p)} ${PL[p].n} ${v[p]?'✓':'· pendiente'}</button>`).join('')}</div>`).join('<div style="height:14px"></div>')
-      :`<div class="vt" style="font-size:18px">Aún no has subido nada hoy</div><p class="mut" style="margin:6px 0 14px;font-size:13px">Cada vídeo nuevo reactiva todo el canal.</p><button class="btn" onclick="nuevoVideo()">Apuntar vídeo</button>`}
-    </div>
+  <p class="sub">${hechas===T.length?'Todo hecho por hoy. Buen trabajo 💪':'Te quedan '+(T.length-hechas)+' '+(T.length-hechas===1?'cosa':'cosas')+' por hacer hoy.'}</p>
+
+  <div class="card ${hechas===T.length?'':'hl'}">
+    <div class="row"><h2 style="margin:0">Qué toca hoy</h2><span class="sp"></span><span class="chip ${hechas===T.length?'ok':'g'}">${hechas}/${T.length}</span></div>
+    <div style="margin-top:6px">${T.map(x=>`<div class="chk ${x.ok?'on':''}" style="cursor:${x.act?'pointer':'default'}" ${x.act?`onclick="${x.act}"`:''}><div class="box"></div><div class="t">${x.t}<small style="${x.late&&!x.ok?'color:var(--red)':''}">${x.d}</small></div></div>`).join('')}</div>
+  </div>
+
+  <div class="grid g2" style="margin-top:14px">
     <div class="card">
       <h2>Racha</h2>
       <div class="streak"><div class="flame">${st?'🔥':'🌑'}</div><div><div class="kpi"><div class="v num">${st} ${st===1?'día':'días'}</div><div class="l">seguidos subiendo vídeo</div></div></div></div>
@@ -330,28 +343,15 @@ function vHoy(){
   </div>
 
   <div class="grid g3" style="margin-top:14px">
-    <div class="card kpi"><div class="l">Suscriptores</div><div class="v num gold">${n(D.canal.subs)}</div>${delta('subs')}${OTRAS.length&&((D.canal.segTT!==''&&D.canal.segTT!=null)||(D.canal.segIG!==''&&D.canal.segIG!=null))?`<div class="d mut" style="display:flex;gap:12px;margin-top:6px">${D.canal.segTT!==''&&D.canal.segTT!=null?`<span>${pdot('tt')} TikTok ${n(D.canal.segTT)}</span>`:''}${D.canal.segIG!==''&&D.canal.segIG!=null?`<span>${pdot('ig')} Instagram ${n(D.canal.segIG)}</span>`:''}</div>`:''}</div>
+    <div class="card kpi"><div class="l">Suscriptores</div><div class="v num gold">${n(D.canal.subs)}</div>${delta('subs')}</div>
     <div class="card kpi"><div class="l">Visualizaciones · 28 días</div><div class="v num">${nk(D.canal.vistas28)}</div>${delta('vistas28')}</div>
     <div class="card kpi"><div class="l">Horas vistas · 28 días</div><div class="v num">${n(D.canal.horas28)}</div>${delta('horas28',1)}</div>
   </div>
 
-  <div class="grid g2" style="margin-top:14px">
-    <div class="card">
-      <div class="row"><h2 style="margin:0">Antes de publicar</h2><span class="sp"></span><span class="chip ${chk.length===CHECK.length?'ok':''}">${chk.length}/${CHECK.length}</span></div>
-      <div style="margin-top:6px">${CHECK.map((c,i)=>`<div class="chk ${chk.includes(i)?'on':''}" onclick="togCheck(${i})"><div class="box"></div><div class="t">${c[0]}<small>${c[1]}</small></div></div>`).join('')}</div>
-    </div>
-    <div class="grid" style="align-content:start">
-      <div class="card">
-        <h2>Análisis que tocan</h2>
-        ${pa.length?pa.map(x=>`<div class="li vrow" onclick="verVideo('${x.v.id}')"><div class="vnum">${x.v.num}</div><div class="sp"><div class="vt" style="font-size:14px">${esc(x.v.titulo)}</div><div class="vm">7 días el ${fCorta(x.dia)}</div></div>${x.falta<0?`<span class="chip bad">Atrasado</span>`:x.falta===0?`<span class="chip g">Hoy</span>`:`<span class="chip">En ${x.falta} ${x.falta===1?'día':'días'}</span>`}</div>`).join('')
-        :`<div class="empty">Nada pendiente en los próximos 3 días.</div>`}
-        <p class="mut" style="font-size:12px;margin:10px 0 0">Mándale a Clau las capturas del vídeo cuando cumpla 7 días, y una foto del Panel cada día.</p>
-      </div>
-      ${sem?`<div class="card">
-        <h2>Foco de la semana</h2>
-        ${(sem.acciones||[]).map((a,i)=>`<div class="chk ${a.hecho?'on':''}" onclick="togAccion('${sem.id}',${i})"><div class="box"></div><div class="t">${esc(a.texto)}</div></div>`).join('')}
-      </div>`:''}
-    </div>
+  <div class="card" style="margin-top:14px">
+    <h2>Próximos análisis</h2>
+    ${pa.length?pa.map(x=>`<div class="li vrow" onclick="verVideo('${x.v.id}')"><div class="vnum">${x.v.num}</div><div class="sp"><div class="vt" style="font-size:14px">${esc(x.v.titulo)}</div><div class="vm">7 días el ${fCorta(x.dia)}</div></div><span class="chip">En ${x.falta} ${x.falta===1?'día':'días'}</span></div>`).join('')
+    :`<div class="empty">Nada pendiente en los próximos 3 días.</div>`}
   </div>`;
 }
 function togCheck(i){let c=checkHoy();c=c.includes(i)?c.filter(x=>x!==i):[...c,i];lsSet('mym-check-'+hoyStr(),JSON.stringify(c));render()}
@@ -487,12 +487,30 @@ function guardarIdea(id){
 }
 
 /* análisis */
+function ranking(){
+  const R=D.analisis.filter(a=>a.tipo==='video'&&a.nota!==''&&a.nota!=null).map(a=>{
+    const vid='v-'+String(a.id).replace(/^a-\d{4}-\d{2}-\d{2}-/,'');
+    const v=D.videos.find(x=>x.id===vid)||{};
+    return {a,v,nota:+a.nota,vistas:num(v.vistas)||0};
+  }).sort((x,y)=>y.nota-x.nota||y.vistas-x.vistas);
+  if(!R.length)return'';
+  const med=['🥇','🥈','🥉'];
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="row"><h2 style="margin:0">Ranking de vídeos</h2><span class="sp"></span><span class="mut" style="font-size:12px">por nota del análisis final</span></div>
+    <div style="margin-top:6px">${R.map((x,i)=>`<div class="li ${x.v.id?'vrow':''}" ${x.v.id?`onclick="verVideo('${x.v.id}')"`:''}>
+      <div class="vnum" style="${i<3?'background:none;font-size:20px':''}">${i<3?med[i]:i+1}</div>
+      <div class="sp" style="min-width:0"><div class="vt" style="font-size:14px">${esc(x.v.titulo||String(x.a.titulo).replace(/ · análisis final$/,''))}</div>
+      <div class="vm">${x.v.num?`<span>#${esc(x.v.num)}</span>`:''}<span>${nk(x.vistas)} vistas</span>${num(x.v.subs)!=null?`<span class="chip g">+${x.v.subs} subs</span>`:''}${num(x.v.vvd)!=null?`<span class="chip">Gancho ${pct(x.v.vvd)}</span>`:''}</div></div>
+      <div class="nota num" style="width:40px;height:40px;font-size:16px">${x.nota}</div></div>`).join('')}</div>
+  </div>`;
+}
 function vAnalisis(){
   let as=[...D.analisis].sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))||String(b.id).localeCompare(String(a.id)));
   if(ui.afil==='canal')as=as.filter(a=>a.tipo!=='video');if(ui.afil==='video')as=as.filter(a=>a.tipo==='video');
   const T={video:'Vídeo',semana:'Canal · semana',canal:'Canal'};
   return `
-  <h1>Análisis</h1><p class="sub">Lo que Clau ha sacado de tus estadísticas. Las acciones se pueden marcar.</p>
+  <h1>Análisis</h1><p class="sub">Lo que Clau ha sacado de tus estadísticas.</p>
+  ${ranking()}
   <div class="seg" style="margin-bottom:14px">${[['todos','Todos'],['canal','Del canal'],['video','De vídeos']].map(([k,l])=>`<button class="${ui.afil===k?'on':''}" onclick="ui.afil='${k}';render()">${l}</button>`).join('')}</div>
   <div class="grid">
   ${as.length?as.map((a,ix)=>`
@@ -509,7 +527,7 @@ function vAnalisis(){
           <div><h2 style="margin-top:6px">Lo que funciona</h2><ul class="ul ok">${(a.bien||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
           <div><h2 style="margin-top:6px">A mejorar</h2><ul class="ul ko">${(a.mejorar||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
         </div>
-        ${(a.acciones||[]).length?`<h2 style="margin-top:14px">Acciones</h2>${a.acciones.map((x,i)=>`<div class="chk ${x.hecho?'on':''}" onclick="togAccion('${a.id}',${i})"><div class="box"></div><div class="t">${esc(x.texto)}</div></div>`).join('')}`:''}
+        ${a.tipo!=='video'&&(a.acciones||[]).length?`<h2 style="margin-top:14px">Acciones</h2>${a.acciones.map((x,i)=>`<div class="chk ${x.hecho?'on':''}" onclick="togAccion('${a.id}',${i})"><div class="box"></div><div class="t">${esc(x.texto)}</div></div>`).join('')}`:''}
       </details>
     </div>`).join(''):`<div class="card empty">Todavía no hay análisis.</div>`}
   </div>`;
